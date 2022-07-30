@@ -32,6 +32,7 @@ describe("vesting", () => {
   const employee = web3.Keypair.generate();
 
   it("Create vesting contract", async () => {
+    console.log("==================== Creating Contract ====================");
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(owner.publicKey, 1e9)
     );
@@ -46,6 +47,7 @@ describe("vesting", () => {
       owner.publicKey,
       9
     );
+    console.log(`Creating Mint: ${mintAddress}`);
 
     ownerToken = await createAssociatedTokenAccount(
       provider.connection,
@@ -53,6 +55,7 @@ describe("vesting", () => {
       mintAddress,
       owner.publicKey
     );
+
     await mintTo(
       provider.connection,
       owner,
@@ -74,13 +77,15 @@ describe("vesting", () => {
         program.programId
       );
 
+    console.log(`Vesting Account: ${vestingAccount}`);
     const [vestingTokenAccount, _vestingTokenBump] =
       await web3.PublicKey.findProgramAddress(
         [mintAddress.toBuffer(), vestingAccount.toBuffer()],
         program.programId
       );
+    console.log(`Vesting Token Account: ${vestingTokenAccount}`);
 
-    await program.methods
+    const tx = await program.methods
       .create(
         [
           new anchor.BN(releaseOneTime),
@@ -105,6 +110,7 @@ describe("vesting", () => {
       })
       .signers([owner])
       .rpc();
+    console.log(`Transaction: ${tx}`);
 
     const escrowInfo = await program.account.vestingScheduleHeader.fetch(
       vestingAccount
@@ -123,6 +129,7 @@ describe("vesting", () => {
   //! =================================
 
   it("Trigger unlock", async () => {
+    console.log("==================== Unlock ====================");
     const [vestingAccount, _vestingBump] =
       await web3.PublicKey.findProgramAddress(
         [Buffer.from(anchor.utils.bytes.utf8.encode(passphrase))],
@@ -135,7 +142,7 @@ describe("vesting", () => {
         program.programId
       );
 
-    await program.methods
+    const tx = await program.methods
       .unlock(passphrase)
       .accounts({
         vestingAccount,
@@ -146,6 +153,7 @@ describe("vesting", () => {
       })
       .rpc();
 
+    console.log(`Transaction: ${tx}`);
     const employeeTokenAccountInfo: any =
       await provider.connection.getParsedAccountInfo(employeeToken);
     assert.equal(
@@ -156,7 +164,44 @@ describe("vesting", () => {
 
   //! =================================
 
+  it("Trigger unlock when zero, should fail", async () => {
+    console.log(
+      "==================== Unlock, Should Fail ===================="
+    );
+    const [vestingAccount, _vestingBump] =
+      await web3.PublicKey.findProgramAddress(
+        [Buffer.from(anchor.utils.bytes.utf8.encode(passphrase))],
+        program.programId
+      );
+
+    const [vestingTokenAccount, _vestingTokenBump] =
+      await web3.PublicKey.findProgramAddress(
+        [mintAddress.toBuffer(), vestingAccount.toBuffer()],
+        program.programId
+      );
+
+    try {
+      const tx = await program.methods
+        .unlock(passphrase)
+        .accounts({
+          vestingAccount,
+          vestingTokenAccount,
+          dstTokenAccount: employeeToken,
+          mintAddress,
+          clock: SYSVAR_CLOCK_PUBKEY,
+        })
+        .rpc();
+    } catch (error) {
+      console.log("Error Message: ", error.error.errorMessage);
+      expect(true);
+    }
+  });
+
+  //! =================================
+
   it("Change Destination", async () => {
+    console.log("==================== Change Destination ====================");
+
     const [vestingAccount, _vestingBump] =
       await web3.PublicKey.findProgramAddress(
         [Buffer.from(anchor.utils.bytes.utf8.encode(passphrase))],
@@ -171,17 +216,20 @@ describe("vesting", () => {
       newAddr.publicKey
     );
 
-    await program.methods
+    console.log(`New Address: ${newAddr.publicKey}`);
+
+    const tx = await program.methods
       .changeDestination(passphrase)
       .accounts({
         vestingAccount,
-        currentDestination: employee.publicKey,
         currentDestinationTokenAccount: employeeToken,
+        currentDestinationTokenAccountOwner: employee.publicKey,
         newDestinationTokenAccount: newAddrToken,
         newDestinationTokenAccountOwner: newAddr.publicKey,
       })
       .signers([employee])
       .rpc();
+    console.log(`Transaction: ${tx}`);
 
     const escrowInfo = await program.account.vestingScheduleHeader.fetch(
       vestingAccount
@@ -196,6 +244,10 @@ describe("vesting", () => {
   //! =================================
 
   it("Close Vesting Contract", async () => {
+    console.log(
+      "==================== Closing Vesting Contract ===================="
+    );
+
     const [vestingAccount, _vestingBump] =
       await web3.PublicKey.findProgramAddress(
         [Buffer.from(anchor.utils.bytes.utf8.encode(passphrase))],
@@ -208,7 +260,7 @@ describe("vesting", () => {
         program.programId
       );
 
-    await program.methods
+    const tx = await program.methods
       .closeAccount(passphrase)
       .accounts({
         vestingAccount,
@@ -220,7 +272,7 @@ describe("vesting", () => {
       })
       .signers([owner])
       .rpc();
-
+    console.log(`Transaction: ${tx}`);
     try {
       await program.account.vestingScheduleHeader.fetch(vestingAccount);
       expect.fail();

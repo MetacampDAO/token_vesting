@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{TokenAccount, Transfer, Token, Mint};
 use anchor_spl::token;
 
-declare_id!("E2945Kfx1HKGiK3QFzLZSBn3hxscJx9vpjPYkm8qffDS");
+declare_id!("cBvCy7Qi492GybgwLbARVPPTk3cBCKbatMZaZwZR8is");
 
 #[program]
 pub mod vesting {
@@ -17,6 +17,7 @@ pub mod vesting {
         vesting_account.src_token_account_owner = ctx.accounts.initializer.key();
         vesting_account.destination_token_account = ctx.accounts.dst_token_account.key();
         vesting_account.destination_token_account_owner = ctx.accounts.dst_token_account_owner.key();
+        vesting_account.mint_key = ctx.accounts.mint_address.key();
         
         // Check if release interval and amount interval is the same length
         require!(release_interval.len() == amount_interval.len(), ErrorCode::InvalidIntervalInput);
@@ -128,19 +129,6 @@ pub mod vesting {
             ), 
             total_amount_to_transfer
         )?;
-
-        // Close token account
-        // let amt = ctx.accounts.vesting_token_account.to_account_info().lamports();
-        
-        // let ix = system_instruction::transfer(
-        //     &ctx.accounts.vesting_account.to_account_info().key,
-        //     &ctx.accounts.initializer.to_account_info().key,
-        //     amt);
-        
-        // invoke_signed(&ix, &[
-        //     ctx.accounts.vesting_account.to_account_info(),
-        //     ctx.accounts.initializer.to_account_info(),
-        // ], &[&signer_seed[..]])?;
         
         Ok(())
     }
@@ -214,6 +202,7 @@ pub struct Unlock<'info> {
     pub vesting_token_account: Account<'info, TokenAccount>,
     #[account(mut)]
     pub dst_token_account: Box<Account<'info, TokenAccount>>,
+    #[account(constraint = mint_address.key() == vesting_account.mint_key)]
     pub mint_address: Box<Account<'info, Mint>>,
     pub clock: Sysvar<'info, Clock>,
     pub system_program: Program<'info, System>,
@@ -226,11 +215,11 @@ pub struct ChangeDestination<'info> {
     #[account(
         mut, seeds = [seedphase.as_ref()], bump, 
         constraint = vesting_account.destination_token_account == current_destination_token_account.key(),
-        constraint = vesting_account.destination_token_account_owner == current_destination.key()
+        constraint = vesting_account.destination_token_account_owner == current_destination_token_account_owner.key()
     )]
     pub vesting_account: Account<'info, VestingScheduleHeader>,
-    pub current_destination: Signer<'info>,
-    #[account(token::authority = current_destination.key())]
+    pub current_destination_token_account_owner: Signer<'info>,
+    #[account(token::authority = current_destination_token_account_owner.key())]
     pub current_destination_token_account: Box<Account<'info, TokenAccount>>,
     /// CHECK: Just make sure authority of new_destination_token_account is this account
     pub new_destination_token_account_owner: UncheckedAccount<'info>,
@@ -261,6 +250,7 @@ pub struct CloseAccount<'info> {
     pub vesting_token_account: Account<'info, TokenAccount>,
     #[account(mut, token::authority = initializer.key())]
     pub src_token_account: Box<Account<'info, TokenAccount>>,
+    #[account(constraint = mint_address.key() == vesting_account.mint_key)]
     pub mint_address: Box<Account<'info, Mint>>,
     pub clock: Sysvar<'info, Clock>,
     pub system_program: Program<'info, System>,
@@ -276,8 +266,9 @@ pub struct VestingSchedule {
 pub struct VestingScheduleHeader {
     pub src_token_account: Pubkey,
     pub src_token_account_owner: Pubkey,
-    pub destination_token_account: Pubkey, // Send to
+    pub destination_token_account: Pubkey,
     pub destination_token_account_owner: Pubkey,
+    pub mint_key: Pubkey,
     pub schedules: Vec<VestingSchedule>,
 }
 
@@ -287,7 +278,7 @@ const U64: usize = 32;
 
 impl VestingScheduleHeader {
     fn LEN() -> usize {
-        DISCRIMINATOR + PUBKEY + PUBKEY + PUBKEY + PUBKEY
+        DISCRIMINATOR + PUBKEY + PUBKEY + PUBKEY + PUBKEY + PUBKEY
     }
 }
 

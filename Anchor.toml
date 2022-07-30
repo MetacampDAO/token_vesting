@@ -1,13 +1,13 @@
 [features]
 seeds = false
-[programs.localnet]
-vesting = "E2945Kfx1HKGiK3QFzLZSBn3hxscJx9vpjPYkm8qffDS"
+[programs.devnet]
+vesting = "cBvCy7Qi492GybgwLbARVPPTk3cBCKbatMZaZwZR8is"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/home/justinlee/.config/solana/devnet.json"
 
 [scripts]
