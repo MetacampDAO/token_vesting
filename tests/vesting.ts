@@ -33,11 +33,9 @@ describe("vesting", () => {
 
   it("Create vesting contract", async () => {
     console.log("==================== Creating Contract ====================");
+
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(owner.publicKey, 1e9)
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(employee.publicKey, 1e9)
     );
 
     mintAddress = await createMint(
@@ -64,6 +62,7 @@ describe("vesting", () => {
       owner.publicKey,
       1e9
     );
+
     employeeToken = await createAssociatedTokenAccount(
       provider.connection,
       owner,

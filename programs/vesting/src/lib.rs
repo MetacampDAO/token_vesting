@@ -200,7 +200,7 @@ pub struct Unlock<'info> {
         token::authority = vesting_account,
     )]
     pub vesting_token_account: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(mut, constraint = vesting_account.destination_token_account == dst_token_account.key())]
     pub dst_token_account: Box<Account<'info, TokenAccount>>,
     #[account(constraint = mint_address.key() == vesting_account.mint_key)]
     pub mint_address: Box<Account<'info, Mint>>,
@@ -218,6 +218,7 @@ pub struct ChangeDestination<'info> {
         constraint = vesting_account.destination_token_account_owner == current_destination_token_account_owner.key()
     )]
     pub vesting_account: Account<'info, VestingScheduleHeader>,
+    #[account(constraint = current_destination_token_account_owner.key() == vesting_account.destination_token_account_owner.key())]
     pub current_destination_token_account_owner: Signer<'info>,
     #[account(token::authority = current_destination_token_account_owner.key())]
     pub current_destination_token_account: Box<Account<'info, TokenAccount>>,
